@@ -254,6 +254,7 @@ const KHAX::VersionData KHAX::VersionData::s_versionTable[] =
 	// Old 3DS, new address layout
 	{ false, SYSTEM_VERSION(2, 44, 6), SYSTEM_VERSION(8, 0, 0), 0xDFF8376F, 0xDFF82294, 0xE0000000, 0x08000000, KPROC_FUNC(8_0_0_Old) },
 	{ false, SYSTEM_VERSION(2, 46, 0), SYSTEM_VERSION(9, 0, 0), 0xDFF8383F, 0xDFF82290, 0xE0000000, 0x08000000, KPROC_FUNC(8_0_0_Old) },
+	{ false, SYSTEM_VERSION(2, 49, 0), SYSTEM_VERSION(9, 0, 0), 0xDFF8383F, 0xDFF82290, 0xE0000000, 0x08000000, KPROC_FUNC(8_0_0_Old) }, // these addresses are copied from above, but work for patching service access on a 2DS v9.5
 	// New 3DS
 	{ true,  SYSTEM_VERSION(2, 45, 5), SYSTEM_VERSION(8, 1, 0), 0xDFF83757, 0xDFF82264, 0xE0000000, 0x10000000, KPROC_FUNC(8_0_0_New) }, // untested
 	{ true,  SYSTEM_VERSION(2, 46, 0), SYSTEM_VERSION(9, 0, 0), 0xDFF83837, 0xDFF82260, 0xE0000000, 0x10000000, KPROC_FUNC(8_0_0_New) },
@@ -1121,6 +1122,43 @@ extern "C" Result khaxInit()
 		KHAX_printf("khaxInit: Step6 failed: %08lx\n", result);
 		return result;
 	}
+	if (Result result = hax.Step7_GrantServiceAccess())
+	{
+		KHAX_printf("khaxInit: Step7 failed: %08lx\n", result);
+		return result;
+	}
+
+	KHAX_printf("khaxInit: done\n");
+	return 0;
+}
+
+//------------------------------------------------------------------------------------------------
+// Assumes the system already has patched syscalls and starts at step 7
+extern "C" Result khaxInitWithSVC()
+{
+		using namespace KHAX;
+
+#ifdef KHAX_DEBUG
+	bool isNew3DS;
+	IsNew3DS(&isNew3DS, 0);
+	KHAX_printf("khaxInit: k=%08lx f=%08lx n=%d\n", osGetKernelVersion(), osGetFirmVersion(),
+		isNew3DS);
+#endif
+
+	// Look up the current system's version in our table.
+	const VersionData *versionData = VersionData::GetForCurrentSystem();
+	if (!versionData)
+	{
+		KHAX_printf("khaxInit: Unknown kernel version\n");
+		return MakeError(27, 6, KHAX_MODULE, 39);
+	}
+
+	KHAX_printf("verdat t=%08lx s=%08lx v=%08lx\n", versionData->m_threadPatchAddress,
+		versionData->m_syscallPatchAddress, versionData->m_fcramVirtualAddress);
+
+	// Create the hack object.
+	MemChunkHax hax{ versionData };
+
 	if (Result result = hax.Step7_GrantServiceAccess())
 	{
 		KHAX_printf("khaxInit: Step7 failed: %08lx\n", result);

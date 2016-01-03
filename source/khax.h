@@ -11,6 +11,8 @@ Result khaxInit();
 // Shut down libkhax
 Result khaxExit();
 
+Result khaxInitWithSVC();
+
 #ifdef __cplusplus
 }
 #endif
