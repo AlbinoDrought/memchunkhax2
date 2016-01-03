@@ -30,8 +30,23 @@ extern u32 __ctru_heap_size;
 
 volatile u32 testVal = 0;
 
+static void grant_svc_access() { 
+	//https://github.com/mrdanielps/r3Ddragon/blob/master/source/3ds_utils.c - don't know if they made it or where they got it from, but it is a lot more compact than others
+	u32*  svc_access_control = *(*(u32***)0xFFFF9000 + 0x22) - 0x6;
+    svc_access_control[0]=0xFFFFFFFE;
+    svc_access_control[1]=0xFFFFFFFF;
+    svc_access_control[2]=0xFFFFFFFF;
+    svc_access_control[3]=0x3FFFFFFF;
+}
+
 static void kernel_entry() {
     testVal = 0xDEADCAFE;
+	grant_svc_access();
+}
+
+s32 kernel_entry_backdoor() {
+	testVal = 0xDEADBEEF;
+	return 0;
 }
 
 // Thread function to slow down svcControlMemory execution.
@@ -239,4 +254,6 @@ cleanup:
     }
 
     printf("Test value: %08X\n", (int) testVal);
+	svcBackdoor(kernel_entry_backdoor);
+	printf("Test value: %08X\n", (int) testVal);
 }
